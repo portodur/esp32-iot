@@ -14,6 +14,9 @@
 
 #include "bme280_hal.h"
 
+#include <u8g2.h>
+#include "u8g2_hal.h"
+
 
 static const char *TAG = "App_Main";
 
@@ -108,6 +111,42 @@ void BME280_task(void *pvParameter)
 
 }
 
+void oled_task(void *ignore)
+{
+	u8g2_t u8g2;
+	u8g2_Setup_ssd1306_i2c_128x64_noname_f(
+			&u8g2,
+			U8G2_R0,
+			u8g2_i2c_byte_cb,
+			u8g2_gpio_and_delay_cb);
+	u8x8_SetI2CAddress(&u8g2.u8x8,0x78);
+
+	u8g2_InitDisplay(&u8g2);
+
+	u8g2_SetPowerSave(&u8g2, 0); // wake up display
+	u8g2_ClearBuffer(&u8g2);
+
+	u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
+	u8g2_DrawStr(&u8g2, 2,17,"Arrancamos!");
+	u8g2_SendBuffer(&u8g2);
+	vTaskDelay(2000 / portTICK_RATE_MS);
+	u8g2_ClearBuffer(&u8g2);
+	u8g2_ClearDisplay(&u8g2);
+
+	struct sensor_t datos;
+
+	while(1){
+		xQueueReceive(bme280_buffer, &datos, portMAX_DELAY);
+		char buf[9];
+		u8g2_ClearBuffer(&u8g2);
+		sprintf(buf, "%.1fºC - %.1f%%", datos.temp, datos.hum );
+		u8g2_DrawStr(&u8g2, 4,17, buf);
+		u8g2_SendBuffer(&u8g2);
+	}
+
+	vTaskDelete(NULL);
+}
+
 void app_main(void)
 {
 	ESP_LOGI(TAG, "[APP] Startup..");
@@ -120,5 +159,6 @@ void app_main(void)
 
 	i2c_init();
 	xTaskCreatePinnedToCore(&BME280_task, "BME280_task", 768*3, NULL, 2, NULL, 1);
+	xTaskCreatePinnedToCore(&oled_task, "Oled_task", 768*3, NULL, 2, NULL, 1);
 }
 
