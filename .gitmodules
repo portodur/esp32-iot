@@ -1,0 +1,3 @@
+[submodule "components/bme280"]
+	path = components/bme280
+	url = https://github.com/portodur/esp32-bme280.git
